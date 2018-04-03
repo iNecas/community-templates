@@ -9,7 +9,6 @@ oses:
 <%#
 This template accepts the following parameters:
 - liveimg_name: string (default=squashfs.img)
-- liveimg_content_path: string - a relative path to the Katello-managed content
 - lang: string (default="en_US.UTF-8")
 - selinux-mode: string (default="enforcing")
 - keyboard: string (default="us")
@@ -23,15 +22,15 @@ root folder (or specified via 'liveimg_name' parameter). See oVirt Node document
 or RHV Installation Manual, section 5.2. Advanced installation.
 
 By default, the template expects the squashfs.img to be present inside
-the installation media. When using Katello for content management,
-it's possible to set 'liveimg_content_path' parameter, that is allows
-to specify relative path to the file and the template will generate an
-absolute path to the file (taking into account also info about the
-content proxy relevant for the host)
+the installation media. When using Katello for content management (the
+kt_activation_key parameter is set), the liveimg_name is used to
+specify relative path to the file and the template use repository_url
+helper to generate an absolute path to the file (taking into account
+also info about the content proxy relevant for the host)
 
 For example, in case the squashfs.img is uploaded inside custom
 product named 'oVirt' and repository 'hypervisor', the
-liveimg_content_path would be 'custom/ovirt/hypervisor/squashfs.img'.
+liveimg_name would be 'custom/ovirt/hypervisor/squashfs.img'.
 In this case, this repository would need to be part of the content
 view the host is assigned to. It's also possible to provide full url,
 in which case it would be used without a change.
@@ -39,10 +38,11 @@ in which case it would be used without a change.
 
 install
 <%
-if host_param('liveimg_content_path')
-  liveimg_url = repository_url(host_param('liveimg_content_path'), 'isos')
+liveimg_name = host_param('liveimg_name') || 'squashfs.img'
+if host_param('kt_activation_keys')
+  liveimg_url = repository_url(liveimg_name, 'isos')
 else
-  liveimg_url = "#{@host.operatingsystem.medium_uri(@host)}/#{host_param('liveimg_name') || 'squashfs.img'}"
+  liveimg_url = "#{@host.operatingsystem.medium_uri(@host)}/#{liveimg_name}"
 end
 %>
 
@@ -73,7 +73,7 @@ reboot
 
 %post --log=/root/ks.post.log --erroronfail
 nodectl init
-<%= snippet 'subscription_manager_registration' if @host.operatingsystem.name == 'RHVH' || host_param('liveimg_content_path') %>
+<%= snippet 'redhat_register' %>
 <%= snippet 'kickstart_networking_setup' %>
 /usr/sbin/ntpdate -sub <%= @host.params['ntp-server'] || '0.fedora.pool.ntp.org' %>
 /usr/sbin/hwclock --systohc
